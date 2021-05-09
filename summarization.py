@@ -88,7 +88,7 @@ class Summarizer(pl.LightningModule):
         return self.model(input_ids,
                           attention_mask=(input_ids != self.tokenizer.pad_token_id),  # mask padding tokens
                           global_attention_mask=self._set_global_attention_mask(input_ids),  # set global attention pattern
-                          labels=output_ids)
+                          labels=output_ids, use_cache=False)
 
     def training_step(self, batch, batch_nb):
         # Call the forward pass then return loss
