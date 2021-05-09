@@ -1,4 +1,3 @@
-import os
 import argparse
 import datasets
 import pytorch_lightning as pl
@@ -39,8 +38,9 @@ class Summarizer(pl.LightningModule):
         super().__init__()
         self.args = params
 
-        # Load the config, update the attention window size, then load the LEDForConditionalGeneration model
+        # Load and update config then load a pretrained LEDForConditionalGeneration
         config = AutoConfig.from_pretrained('allenai/led-base-16384')
+        config.gradient_checkpointing = self.args.grad_ckpt
         config.attention_window = [self.args.attention_window] * len(config.attention_window)
         self.model = AutoModelForSeq2SeqLM.from_pretrained('allenai/led-base-16384', config=config)
 
@@ -69,20 +69,26 @@ class Summarizer(pl.LightningModule):
     def val_dataloader(self):
         return self._get_dataloader('validation', is_train=False)
 
-    def _prepare_led_global_attention_mask(self, input_ids):
+    def _set_global_attention_mask(self, input_ids):
         '''Configure the global attention pattern based on the task'''
 
+        # Local attention everywhere - no global attention
         global_attention_mask = torch.zeros(input_ids.shape, dtype=torch.long, device=input_ids.device)
-        # global_attention_mask[input_ids == self.tokenizer.pad_token_id] = 0
-        # global_attention_mask[:, 0] = 2  # global attention on one token for all model params to be used, which is important for gradient checkpointing to work
+
+        # # Global attention on the first 100 tokens
+        # global_attention_mask[:, :100] = 1
+
+        # # Global attention on periods
+        # global_attention_mask[(input_ids == self.tokenizer.convert_tokens_to_ids('.'))] = 1
+
         return global_attention_mask
 
     def forward(self, input_ids, output_ids):
-        # Prepare global attention pattern
-        global_attention_mask = self._prepare_led_global_attention_mask(input_ids)
-
         # Call LEDForConditionalGeneration.forward
-        return self.model(input_ids, global_attention_mask=global_attention_mask, labels=output_ids)
+        return self.model(input_ids,
+                          attention_mask=(input_ids != self.tokenizer.pad_token_id),  # mask padding tokens
+                          global_attention_mask=self._set_global_attention_mask(input_ids),  # set global attention pattern
+                          labels=output_ids)
 
     def training_step(self, batch, batch_nb):
         # Call the forward pass then return loss
@@ -90,14 +96,11 @@ class Summarizer(pl.LightningModule):
         return {'loss': outputs.loss}
 
     def validation_step(self, batch, batch_nb):
-        # Disable gradients to save memory in the forward pass
-        for p in self.model.parameters():
-            p.requires_grad = False
-
         # Generate
         input_ids, output_ids = batch
-        global_attention_mask = self._prepare_led_global_attention_mask(input_ids)
-        generated_ids = self.model.generate(input_ids=input_ids, global_attention_mask=global_attention_mask,
+        generated_ids = self.model.generate(input_ids=input_ids,
+                                            attention_mask=(input_ids != self.tokenizer.pad_token_id),
+                                            global_attention_mask=self._set_global_attention_mask(input_ids),
                                             use_cache=True, max_length=self.args.max_output_len, num_beams=1)
 
         # Convert predicted and gold token ids to strings
@@ -111,13 +114,8 @@ class Summarizer(pl.LightningModule):
         # Log metric
         self.log('val_rouge1', rouge1, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
 
-    def validation_epoch_end(self, outputs):
-        # Enable gradients again when validation is done
-        for p in self.model.parameters():
-            p.requires_grad = True
-
     @staticmethod
-    def add_model_specific_args(parser, root_dir):
+    def add_model_specific_args(parser):
         # **************** Parameters that we will NOT change during this tutorial **************** #
         parser.add_argument("--seed", type=int, default=1234, help="Seed")
         parser.add_argument("--lr", type=float, default=0.00003, help="Maximum learning rate")
@@ -142,7 +140,7 @@ class Summarizer(pl.LightningModule):
 if __name__ == "__main__":
     # Setup command line args
     main_arg_parser = argparse.ArgumentParser(description="summarization")
-    parser = Summarizer.add_model_specific_args(main_arg_parser, os.getcwd())
+    parser = Summarizer.add_model_specific_args(main_arg_parser)
     args = parser.parse_args()
 
     # Init a PL module
@@ -173,7 +171,7 @@ conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
 git clone git@github.com:allenai/naacl2021-longdoc-tutorial.git
 cd naacl2021-longdoc-tutorial
 pip install -r requirements.txt
-PYTHONWARNINGS="ignore" CUDA_VISIBLE_DEVICES=0,1   python summarization.py
+PYTHONWARNINGS="ignore" CUDA_VISIBLE_DEVICES=6,7   python summarization.py
 
 PYTHONWARNINGS="ignore" srun --gpus=2  -w  allennlp-server3   python summarization.py
 '''
