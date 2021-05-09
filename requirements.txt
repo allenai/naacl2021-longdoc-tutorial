@@ -1,0 +1,7 @@
+torch==1.8.1
+transformers==4.3.2
+pytorch-lightning==1.0.8
+datasets
+rouge_score
+ipdb
+gpustat
