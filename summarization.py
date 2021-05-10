@@ -74,9 +74,10 @@ class Summarizer(pl.LightningModule):
 
         # Local attention everywhere - no global attention
         global_attention_mask = torch.zeros(input_ids.shape, dtype=torch.long, device=input_ids.device)
+        global_attention_mask[:, 0] = 1  # global attention on the <s> token for gradient checkpointing to work
 
-        # # Global attention on the first 100 tokens
-        # global_attention_mask[:, :100] = 1
+        # Global attention on the first 100 tokens
+        # global_attention_mask[:, :1] = 1
 
         # # Global attention on periods
         # global_attention_mask[(input_ids == self.tokenizer.convert_tokens_to_ids('.'))] = 1
@@ -113,6 +114,7 @@ class Summarizer(pl.LightningModule):
 
         # Log metric
         self.log('val_rouge1', rouge1, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
+        return rouge1
 
     @staticmethod
     def add_model_specific_args(parser):
@@ -151,7 +153,9 @@ if __name__ == "__main__":
     summarizer.hf_dataset = datasets.load_dataset('scientific_papers', 'arxiv')
 
     # Construct a PL trainer
-    trainer = pl.Trainer(gpus=-1, distributed_backend='ddp',
+    trainer = pl.Trainer(gpus=-1,
+                         accelerator='ddp',
+                         plugins=[pl.plugins.DDPPlugin(find_unused_parameters=False)],  # important for gradient checkpointing
                          max_epochs=args.epochs,
                          replace_sampler_ddp=False,
                          num_sanity_val_steps=0,
@@ -171,7 +175,7 @@ conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
 git clone git@github.com:allenai/naacl2021-longdoc-tutorial.git
 cd naacl2021-longdoc-tutorial
 pip install -r requirements.txt
-PYTHONWARNINGS="ignore" CUDA_VISIBLE_DEVICES=6,7   python summarization.py
-
-PYTHONWARNINGS="ignore" srun --gpus=2  -w  allennlp-server3   python summarization.py
+PYTHONWARNINGS="ignore" CUDA_VISIBLE_DEVICES=6,7   python summarization.py  \
+    --fp16  --batch_size 2  --grad_accum 1 --grad_ckpt   \
+    --max_input_len  16384 --attention_window  1024
 '''
