@@ -7,23 +7,32 @@ from transformers import AutoTokenizer, AutoConfig, AutoModelForSeq2SeqLM, set_s
 
 
 class SummarizationDataset(Dataset):
-    """HF Dataset Wrapper. It handles tokenization, max input/output seqlen, padding and batching"""
-    def __init__(self, hf_dataset, tokenizer, args):
-        self.hf_dataset = hf_dataset
+    """HF arXiv Dataset Wrapper. It handles tokenization, max input/output seqlen, padding and batching"""
+
+    def __init__(self, hf_arxiv_dataset, tokenizer, args):
+        self.hf_arxiv_dataset = hf_arxiv_dataset
         self.tokenizer = tokenizer
         self.args = args
 
     def __len__(self):
-        return len(self.hf_dataset)
+        """Returns length of the dataset"""
+        return len(self.hf_arxiv_dataset)
 
     def __getitem__(self, idx):
-        entry = self.hf_dataset[idx]
-        input_ids = self.tokenizer.encode(entry['article'], truncation=True, max_length=self.args.max_input_len)
-        output_ids = self.tokenizer.encode(entry['abstract'], truncation=True, max_length=self.args.max_output_len)
+        """Gets an example from the dataset. The input and output are tokenized and limited to a certain seqlen."""
+        entry = self.hf_arxiv_dataset[idx]
+        input_ids = self.tokenizer.encode(entry['article'], truncation=True, max_length=self.args.max_input_len,
+                                          padding='max_length')  # padding to max seqlen for const memory/example
+        output_ids = self.tokenizer.encode(entry['abstract'], truncation=True, max_length=self.args.max_output_len,
+                                          padding='max_length')  # padding to max seqlen for const memory/example
         return torch.tensor(input_ids), torch.tensor(output_ids)
 
     @staticmethod
     def collate_fn(batch):
+        """
+        Groups multiple examples into one batch with padding and tensorization.
+        The collate function is called by PyTorch DataLoader
+        """
         pad_token_id = 1
         input_ids, output_ids = list(zip(*batch))
         input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=pad_token_id)
@@ -35,6 +44,7 @@ class Summarizer(pl.LightningModule):
     """Pytorch Lightning module. It wraps up the model, data loading and training code"""
 
     def __init__(self, params):
+        """Loads the model, the tokenizer and the metric."""
         super().__init__()
         self.args = params
 
@@ -48,16 +58,57 @@ class Summarizer(pl.LightningModule):
         self.tokenizer = AutoTokenizer.from_pretrained('allenai/led-base-16384', use_fast=True)
         self.rouge = datasets.load_metric('rouge')
 
+    def _set_global_attention_mask(self, input_ids):
+        """Configure the global attention pattern based on the task"""
+
+        # Local attention everywhere - no global attention
+        global_attention_mask = torch.zeros(input_ids.shape, dtype=torch.long, device=input_ids.device)
+
+        # Gradient Accumulation caveat 1:
+        # For gradient accumulation to work, all model parameters should contribute
+        # to the computation of the loss. Remember that the self-attention layers in the LED model
+        # have two sets of qkv layers, one for local attention and another for global attention.
+        # If we don't use any global attention, the global qkv layers won't be used and
+        # PyTorch will throw an error. This is just a PyTorch implementation limitation
+        # not a conceptual one (PyTorch 1.8.1).
+        # The following line puts global attention on the <s> token to make sure all model
+        # parameters which is necessery for gradient accumulation to work.
+        global_attention_mask[:, 0] = 1
+
+        # # Global attention on the first 100 tokens
+        # global_attention_mask[:, :100] = 1
+
+        # # Global attention on periods
+        # global_attention_mask[(input_ids == self.tokenizer.convert_tokens_to_ids('.'))] = 1
+
+        return global_attention_mask
+
+    def forward(self, input_ids, output_ids):
+        """Call LEDForConditionalGeneration.forward"""
+        return self.model(input_ids,
+                          attention_mask=(input_ids != self.tokenizer.pad_token_id),  # mask padding tokens
+                          global_attention_mask=self._set_global_attention_mask(input_ids),  # set global attention
+                          labels=output_ids, use_cache=False)
+
+    def training_step(self, batch, batch_nb):
+        """Call the forward pass then return loss"""
+        outputs = self.forward(*batch)
+        return {'loss': outputs.loss}
+
     def configure_optimizers(self):
-        '''Configure the optimizer and the learning rate scheduler'''
+        """Configure the optimizer and the learning rate scheduler"""
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.args.lr)
-        num_steps = len(self.hf_dataset['train']) * self.args.epochs / torch.cuda.device_count() / self.args.grad_accum / self.args.batch_size
-        scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=self.args.warmup, num_training_steps=num_steps)
+        dataset_size = len(self.hf_dataset['train'])
+        gpu_count = torch.cuda.device_count()
+        num_steps = dataset_size * self.args.epochs / gpu_count / self.args.grad_accum / self.args.batch_size
+        scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=self.args.warmup,
+                                                    num_training_steps=num_steps)
         return [optimizer], [{"scheduler": scheduler, "interval": "step"}]
 
     def _get_dataloader(self, split_name, is_train):
-        '''Get training and validation dataloaders'''
-        dataset = SummarizationDataset(hf_dataset=self.hf_dataset[split_name], tokenizer=self.tokenizer, args=self.args)
+        """Get training and validation dataloaders"""
+        dataset_split = self.hf_dataset[split_name]
+        dataset = SummarizationDataset(hf_arxiv_dataset=dataset_split, tokenizer=self.tokenizer, args=self.args)
         sampler = torch.utils.data.distributed.DistributedSampler(dataset, shuffle=is_train)
         return DataLoader(dataset, batch_size=self.args.batch_size, shuffle=(sampler is None),
                           num_workers=self.args.num_workers, sampler=sampler,
@@ -69,34 +120,8 @@ class Summarizer(pl.LightningModule):
     def val_dataloader(self):
         return self._get_dataloader('validation', is_train=False)
 
-    def _set_global_attention_mask(self, input_ids):
-        '''Configure the global attention pattern based on the task'''
-
-        # Local attention everywhere - no global attention
-        global_attention_mask = torch.zeros(input_ids.shape, dtype=torch.long, device=input_ids.device)
-        global_attention_mask[:, 0] = 1  # global attention on the <s> token for gradient checkpointing to work
-
-        # Global attention on the first 100 tokens
-        # global_attention_mask[:, :1] = 1
-
-        # # Global attention on periods
-        # global_attention_mask[(input_ids == self.tokenizer.convert_tokens_to_ids('.'))] = 1
-
-        return global_attention_mask
-
-    def forward(self, input_ids, output_ids):
-        # Call LEDForConditionalGeneration.forward
-        return self.model(input_ids,
-                          attention_mask=(input_ids != self.tokenizer.pad_token_id),  # mask padding tokens
-                          global_attention_mask=self._set_global_attention_mask(input_ids),  # set global attention pattern
-                          labels=output_ids, use_cache=False)
-
-    def training_step(self, batch, batch_nb):
-        # Call the forward pass then return loss
-        outputs = self.forward(*batch)
-        return {'loss': outputs.loss}
-
     def validation_step(self, batch, batch_nb):
+        """Validation - predict output, compare it with gold, compute rouge1, and return result"""
         # Generate
         input_ids, output_ids = batch
         generated_ids = self.model.generate(input_ids=input_ids,
@@ -155,7 +180,11 @@ if __name__ == "__main__":
     # Construct a PL trainer
     trainer = pl.Trainer(gpus=-1,
                          accelerator='ddp',
-                         plugins=[pl.plugins.DDPPlugin(find_unused_parameters=False)],  # important for gradient checkpointing
+                         # Gradient Accumulation caveat 2:
+                         # For gradient accumulation to work with DistributedDataParallel,
+                         # the `find_unused_parameters` should be `False`. Without it,
+                         # you get a not-very-helpful error message (PyTorch 1.8.1)
+                         plugins=[pl.plugins.DDPPlugin(find_unused_parameters=False)],
                          max_epochs=args.epochs,
                          replace_sampler_ddp=False,
                          num_sanity_val_steps=0,
