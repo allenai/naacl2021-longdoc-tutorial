@@ -1,4 +1,4 @@
-# NAACL 2021 Tutorial: Beyond Paragraphs: NLP for Long Sequences
+# Beyond Paragraphs: NLP for Long Sequences
 
 
 This NAACL 2021 tutorial will be held on Sunday, June 6, 2021.
@@ -9,11 +9,11 @@ This NAACL 2021 tutorial will be held on Sunday, June 6, 2021.
 
 
 ## Speakers
-- [Iz Beltagy](beltagy.net) (Al2) `beltagy@allenai.org`
-- [Arman Cohan](armancohan.com) (Al2) `armanc@allenai.org`
-- [Hanna Hajishirzi](homes.cs.washington.edu/~hannaneh/) (UW, Al2) `hannaneh@cs.washington.edu`
-- [Sewon Min](shmsw25.github.io) (UW) `sewon@cs.washington.edu`
-- [Matthew Peters](scholar.google.com/citations?user=K5nCPZwAAAAJ) (AI2) `matthewp@allenai.org`
+- [Iz Beltagy](https://beltagy.net) (Al2) `beltagy@allenai.org`
+- [Arman Cohan](https://armancohan.com) (Al2) `armanc@allenai.org`
+- [Hanna Hajishirzi](https://homes.cs.washington.edu/~hannaneh/) (UW, Al2) `hannaneh@cs.washington.edu`
+- [Sewon Min](https://shmsw25.github.io) (UW) `sewon@cs.washington.edu`
+- [Matthew Peters](https://scholar.google.com/citations?user=K5nCPZwAAAAJ) (AI2) `matthewp@allenai.org`
 
 ## Materials
 - [Part 1. Intro & Overview of tasks](slides/part1-intro-and-overview-of-tasks.pdf)
@@ -21,7 +21,7 @@ This NAACL 2021 tutorial will be held on Sunday, June 6, 2021.
 - [Part 3. Long sequence transformers](slides/part3-long-sequence-transformers.pdf)
 - [Part 4. Pretraining and finetuning](slides/part4-pretraining-and-finetuning.pdf)
 - [Part 5. Use cases](slides/part5-use-cases.pdf)
-- [Part 6. Future work & conclusion](slides/part6-future-work-and-conclusion)
+- [Part 6. Future work & conclusion](slides/part6-future-work-and-conclusion.pdf)
 
 
 ## Reading list
