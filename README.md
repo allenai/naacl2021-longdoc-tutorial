@@ -12,7 +12,7 @@ This NAACL 2021 tutorial will be held on Sunday, June 6, 2021.
 |---|---|---|---|---|
 | 8-9:30 | 11-12:30 | 3-4:30 | Watch Part 1, 2 and 3 | Prerecorded videos |
 | 9:30-10 | 12:30-1 | 4:30-5 | Break + Optional QnA | Zoom |
-| 10-11:30 | 1-2:30 | 5-6:30 | Watch Part 4, 5 and 6 | Prerecorded videos |
+| 10-11:30 | 1-2:30 | 5-6:30 | Watch Part 4 and 5 | Prerecorded videos |
 | 11:30-12 | 2:30-3 | 6:30-7 | QnA | Zoom |
 
 
@@ -30,6 +30,8 @@ This NAACL 2021 tutorial will be held on Sunday, June 6, 2021.
 - [Part 4. Pretraining and finetuning](slides/part4-pretraining-and-finetuning.pdf)
 - [Part 5. Use cases](slides/part5-use-cases.pdf)
 - [Part 6. Future work & conclusion](slides/part6-future-work-and-conclusion.pdf)
+
+Note: Parts 5 and 6 are presented in the 5th video on Underline.
 
 
 ## Reading list
