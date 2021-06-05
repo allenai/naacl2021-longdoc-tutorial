@@ -5,7 +5,15 @@ This NAACL 2021 tutorial will be held on Sunday, June 6, 2021.
 
 ## Location & Time
 - Location: [Underline.io link](https://underline.io/events/122/sessions?eventSessionId=4103) (zoom link available; accessible upon registration)
-- Time: 8am-12pm PST / 11am-3pm EST / 3pm-7pm GMT (Schedule TBA)
+- Time: 8am-12pm PST / 11am-3pm EST / 3pm-7pm GMT
+- Schedule
+
+| PST | EST | GMT | Schedule | Location |
+|---|---|---|---|---|
+| 8-9:30 | 11-12:30 | 3-4:30 | Watch Part 1, 2 and 3 | Prerecorded videos |
+| 9:30-10 | 12:30-1 | 4:30-5 | Break + Optional QnA | Zoom |
+| 10-11:30 | 1-2:30 | 5-6:30 | Watch Part 4, 5 and 6 | Prerecorded videos |
+| 11:30-12 | 2:30-3 | 6:30-7 | QnA | Zoom |
 
 
 ## Speakers
@@ -45,7 +53,7 @@ This NAACL 2021 tutorial will be held on Sunday, June 6, 2021.
 - Linfeng Song, Zhiguo Wang, Mo Yu, Yue Zhang, Radu Florian, Daniel Gildea. 2018. [Exploring Graph-structured Passage Representation for Multi-hop Reading Comprehension with Graph Neural Networks](https://arxiv.org/abs/1809.02040)
 - Yunxuan Xiao, Yanru Qu, Lin Qiu, Hao Zhou, Lei Li, Weinan Zhang, Yong Yu. 2019. [Dynamically Fused Graph Network for Multi-hop Reasoning](https://arxiv.org/abs/1905.06933)
 - Yuwei Fang, Siqi Sun, Zhe Gan, Rohit Pillai, Shuohang Wang, Jingjing Liu. 2020. [Hierarchical Graph Network for Multi-hop Question Answering](https://www.aclweb.org/anthology/2020.emnlp-main.710/)
-- Sewon Min, Danqi Chen, Luke Zettlemoyer, Hannaneh Hajishirzi. 20219. [Knowledge-guided Text Retrieval and Reading for Open Domain Question Answering](https://arxiv.org/abs/1911.03868)
+- Sewon Min, Danqi Chen, Luke Zettlemoyer, Hannaneh Hajishirzi. 2019. [Knowledge-guided Text Retrieval and Reading for Open Domain Question Answering](https://arxiv.org/abs/1911.03868)
 
 ### Part 3. Long sequence transformers
 - Zihang Dai, Zhilin Yang, Yiming Yang, Jaime Carbonell, Quoc V. Le, Ruslan Salakhutdinov. 2019. [Transformer-XL: Attentive Language Models Beyond a Fixed-Length Context](https://arxiv.org/abs/1901.02860)
