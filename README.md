@@ -12,8 +12,8 @@ This NAACL 2021 tutorial will be held on Sunday, June 6, 2021.
 |---|---|---|---|---|
 | 8-9:30 | 11-12:30 | 3-4:30 | Watch Part 1, 2 and 3 | Prerecorded videos |
 | 9:30-10 | 12:30-1 | 4:30-5 | Break + Optional QnA | Zoom |
-| 10-~~11:30~~11 | 1-~~2:30~~2 | 5-~~6:30~~6 | Watch Part 4 and 5 | Prerecorded videos |
-| ~~11:30~~11-12 | ~~2:30~~2-3 | ~~6:30~~6-7 | QnA | Zoom |
+| 10-11 ~~11:30~~ | 1-2 ~~2:30~~ | 5-6 ~~6:30~~ | Watch Part 4 and 5 | Prerecorded videos |
+| ~~11:30~~ 11-12 | ~~2:30~~ 2-3 | ~~6:30~~ 6-7 | QnA | Zoom |
 
 
 ## Speakers
