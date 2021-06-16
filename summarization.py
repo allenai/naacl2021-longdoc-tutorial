@@ -275,6 +275,7 @@ if __name__ == "__main__":
     summarizer.hf_dataset = datasets.load_dataset('scientific_papers', 'arxiv')
 
     checkpoint_callback = ModelCheckpoint(monitor='val_rouge1',
+                                          mode="max",
                                           dirpath=args.output_dir,
                                           save_top_k=3)
 
