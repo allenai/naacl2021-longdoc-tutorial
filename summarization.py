@@ -1,9 +1,7 @@
 import argparse
-import json
 import os
 
 import datasets
-import numpy as np
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -29,7 +27,7 @@ class SummarizationDataset(Dataset):
         input_ids = self.tokenizer.encode(entry['article'], truncation=True, max_length=self.args.max_input_len,
                                           padding='max_length')  # padding to max seqlen for const memory/example
         output_ids = self.tokenizer.encode(entry['abstract'], truncation=True, max_length=self.args.max_output_len,
-                                          padding='max_length')  # padding to max seqlen for const memory/example
+                                           padding='max_length')  # padding to max seqlen for const memory/example
         return torch.tensor(input_ids), torch.tensor(output_ids)
 
     @staticmethod
@@ -150,7 +148,6 @@ class Summarizer(pl.LightningModule):
 
     def validation_step(self, batch, batch_nb):
         self._evaluation_step('val', batch, batch_nb)
-
 
     def test_step(self, batch, batch_nb):
         self._evaluation_step('test', batch, batch_nb)
