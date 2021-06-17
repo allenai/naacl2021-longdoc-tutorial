@@ -128,8 +128,8 @@ class Summarizer(pl.LightningModule):
     def test_dataloader(self):
         return self._get_dataloader('test', is_train=False)
 
-    def validation_step(self, batch, batch_nb):
-        """Validation - predict output, compare it with gold, compute rouge1, and return result"""
+    def _evaluation_step(self, split, batch, batch_nb):
+        """Validaton or Testing - predict output, compare it with gold, compute rouge1, 2, L, and log result"""
         # Generate
         input_ids, output_ids = batch
         generated_ids = self.model.generate(input_ids=input_ids,
@@ -142,98 +142,18 @@ class Summarizer(pl.LightningModule):
         references = self.tokenizer.batch_decode(output_ids.tolist(), skip_special_tokens=True)
 
         # Compute rouge
+        metric_names = ['rouge1', 'rouge2', 'rougeL', 'rougeLsum']
         results = self.rouge.compute(predictions=predictions, references=references)
-        rouge1 = input_ids.new_zeros(1) + results["rouge1"].mid.fmeasure
-        rouge2 = input_ids.new_zeros(1) + results["rouge2"].mid.fmeasure
-        rougel = input_ids.new_zeros(1) + results["rougeL"].mid.fmeasure
-        rougelsum = input_ids.new_zeros(1) + results["rougeLsum"].mid.fmeasure
+        for metric_name in metric_names:
+            metric_val = input_ids.new_zeros(1) + results[metric_name].mid.fmeasure
+            self.log(f'{split}_{metric_name}', metric_val, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
 
-        # Log metric
-        self.log('val_rouge1', rouge1, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
-        self.log('val_rouge2', rouge2, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
-        self.log('val_rougeL', rougel, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
-        self.log('val_rougeLsum', rougelsum, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
-        metrics = {"val_rouge1": rouge1,
-                   "val_rouge2": rouge2,
-                   "val_rougeL": rougel,
-                   "val_rougeLsum": rougelsum}
-        return metrics
+    def validation_step(self, batch, batch_nb):
+        self._evaluation_step('val', batch, batch_nb)
 
-    def validation_epoch_end(self, validation_step_outputs):
-        aggregated_metrics = {"val_rouge1": [],
-                              "val_rouge2": [],
-                              "val_rougeL": [],
-                              "val_rougeLsum": []}
-        for pred in validation_step_outputs:
-            for key, value in pred.items():
-                aggregated_metrics[key].append(value.cpu().item())
-
-        for key, value in aggregated_metrics.items():
-            aggregated_metrics[key] = np.mean(value)
-
-        self.log("Val Rouge 1: ", aggregated_metrics["val_rouge1"])
-        self.log("Val Rouge 2: ", aggregated_metrics["val_rouge2"])
-        self.log("Val Rouge L: ", aggregated_metrics["val_rougeL"])
-        self.log("Val Rouge Lsum: ", aggregated_metrics["val_rougeLsum"])
-
-        fp = open(args.output_dir+"/val_metrics.txt", "a+")
-        fp.write("Val Rouge 1: "+str(aggregated_metrics["val_rouge1"])+"\n")
-        fp.write("Val Rouge 2: "+str(aggregated_metrics["val_rouge2"])+"\n")
-        fp.write("Val Rouge L: "+str(aggregated_metrics["val_rougeL"])+"\n")
-        fp.write("Val Rouge Lsum: "+str(aggregated_metrics["val_rougeLsum"])+"\n\n")
-        fp.close()
 
     def test_step(self, batch, batch_nb):
-        """Test - predict output, compare it with gold, compute rouge1, and return result"""
-        # Generate
-        input_ids, output_ids = batch
-        generated_ids = self.model.generate(input_ids=input_ids,
-                                            attention_mask=(input_ids != self.tokenizer.pad_token_id),
-                                            global_attention_mask=self._set_global_attention_mask(input_ids),
-                                            use_cache=True, max_length=self.args.max_output_len, num_beams=1)
-
-        # Convert predicted and gold token ids to strings
-        predictions = self.tokenizer.batch_decode(generated_ids.tolist(), skip_special_tokens=True)
-        references = self.tokenizer.batch_decode(output_ids.tolist(), skip_special_tokens=True)
-
-        # Compute rouge
-        results = self.rouge.compute(predictions=predictions, references=references)
-        rouge1 = input_ids.new_zeros(1) + results["rouge1"].mid.fmeasure
-        rouge2 = input_ids.new_zeros(1) + results["rouge2"].mid.fmeasure
-        rougel = input_ids.new_zeros(1) + results["rougeL"].mid.fmeasure
-        rougelsum = input_ids.new_zeros(1) + results["rougeLsum"].mid.fmeasure
-
-        # Log metric
-        self.log('test_rouge1', rouge1, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
-        self.log('test_rouge2', rouge2, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
-        self.log('test_rougel', rougel, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
-        self.log('test_rougelsum', rougel, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
-        metrics = {"test_rouge1": rouge1,
-                   "test_rouge2": rouge2,
-                   "test_rougeL": rougel,
-                   "test_rougeLsum": rougelsum}
-        return metrics
-
-    def test_epoch_end(self, test_step_outputs):
-        aggregated_metrics = {"test_rouge1": [],
-                              "test_rouge2": [],
-                              "test_rougeL": [],
-                              "test_rougeLsum": []}
-
-        for pred in test_step_outputs:
-            for key, value in pred.items():
-                aggregated_metrics[key].append(value.cpu().item())
-
-        for key, value in aggregated_metrics.items():
-            aggregated_metrics[key] = np.mean(value)
-
-        self.log("Test Rouge 1: ", aggregated_metrics["test_rouge1"])
-        self.log("Test Rouge 2: ", aggregated_metrics["test_rouge2"])
-        self.log("Test Rouge L: ", aggregated_metrics["test_rougeL"])
-        self.log("Test Rouge Lsum: ", aggregated_metrics["test_rougeLsum"])
-
-        fp = open(args.output_dir+"/metrics.json", "w")
-        fp.write(json.dumps(aggregated_metrics))
+        self._evaluation_step('test', batch, batch_nb)
 
     @staticmethod
     def add_model_specific_args(parser):
