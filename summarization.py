@@ -67,15 +67,15 @@ class Summarizer(pl.LightningModule):
         # Local attention everywhere - no global attention
         global_attention_mask = torch.zeros(input_ids.shape, dtype=torch.long, device=input_ids.device)
 
-        # Gradient Accumulation caveat 1:
-        # For gradient accumulation to work, all model parameters should contribute
+        # Gradient Checkpointing caveat 1:
+        # For gradient checkpointing to work, all model parameters should contribute
         # to the computation of the loss. Remember that the self-attention layers in the LED model
         # have two sets of qkv layers, one for local attention and another for global attention.
         # If we don't use any global attention, the global qkv layers won't be used and
         # PyTorch will throw an error. This is just a PyTorch implementation limitation
         # not a conceptual one (PyTorch 1.8.1).
         # The following line puts global attention on the <s> token to make sure all model
-        # parameters which is necessery for gradient accumulation to work.
+        # parameters which is necessery for gradient checkpointing to work.
         global_attention_mask[:, 0] = 1
 
         # # Global attention on the first 100 tokens
@@ -202,8 +202,8 @@ if __name__ == "__main__":
     # Construct a PL trainer
     trainer = pl.Trainer(gpus=-1,
                          accelerator='ddp',
-                         # Gradient Accumulation caveat 2:
-                         # For gradient accumulation to work with DistributedDataParallel,
+                         # Gradient Checkpointing caveat 2:
+                         # For gradient checkpointing to work with DistributedDataParallel,
                          # the `find_unused_parameters` should be `False`. Without it,
                          # you get a not-very-helpful error message (PyTorch 1.8.1)
                          plugins=[pl.plugins.ddp_plugin.DDPPlugin(find_unused_parameters=False)],
